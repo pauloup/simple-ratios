@@ -767,18 +767,17 @@
          return array;
       }
       
-      function getSizeFromRatio(a) {
-         
-         if (a[0] < a[1]) {
-            height = app.size[1];
-            width = Math.round(height / a[1] * a[0]);
-         }
-         else {
-            width = app.size[0];
-            height = Math.round(width / a[0] * a[1]);
-         }
+      function getSizeFromRatio(ratio) {
 
-         return [width, height];
+         // Change smaller side
+         let a = app.smaller;
+         let b = app.bigger;
+
+         let size = [app.size[0], app.size[1]];
+         
+         size[a] = Math.round(app.size[b] / ratio[b] * ratio[a]);
+
+         return size;
       }
       
       function getScore(size, change) {
