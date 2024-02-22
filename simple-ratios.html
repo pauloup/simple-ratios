@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+   simple-ratios.html
+   
+   Copyright 2024 Paulo <pauloup@gmail.com>
+   
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+   
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.
+
+   ---------------------------------------------------------------------
+   
+   TODO
+
+   - [ ] Travel one level deeper in continuous fractions
+   - [ ] Graphics to vizualize the format size and changes
+   - [ ] Light mode, with auto switch
+   - [ ] Swap sizes option
+   - [ ] Info on the origin of every ratio
+   - [ ] Settings:
+      - [ ] Help text on every setting
+      - [ ] Screen tip on mouse hover
+      - [ ] Info on screen: Max change/score
+      - [ ] Sketchy settings on Inkscape
+         - [ ] Show split aside on desktop, so changes are live  
+         - [ ] Show split above on mobile, so changes are live
+            - [ ] Title and size smaller on top
+            - [ ] Settings showing in steps, to take as little
+                  space as possible. Hide all other settings when
+                  adjusting each setting.
+      - [ ] Side to change: width, height, (x)smaller, larger,
+            both for keeping area, both for getting a multiple of
+            [2, 4, 5, 8, 10, 16, custom]
+            [2, 4, 5, 8, 10, 16, custom]
+         - [ ] For "both for getting a multiple":
+               Score measured by change in: (x)side, area
+               Side changes put higher score on smaller side changes
+               Area changes put higher score on bigger side changes
+      - [ ] Size changes to: increase, decrease, (x)both
+      - [ ] For ratios with same size, show only the: (x)smallest,
+            most precise, all
+            For example: 1092 x 1920 has at least 3 exact ratios
+      - [ ] Max change in: percentage, absolute
+         - [ ] Auto convert when switching between the two
+         - [ ] Link width and height
+      - [ ] Only sizes multiples of [2, 4, 5, 8, 10, 16, custom]
+      - [ ] Allow large ratios, bigger than the size square root
+      - [50%] Max results by ratio digits count: (5)
+   - [ ] Handle irrational ratios: golden ratio, pi...
+   
+   ---------------------------------------------------------------------
+
+   CHANGELOG
+
+   v.0.1
+   
+   
+-->
+   <style>
+
+      :root {
+         font: 32px "Product Sans", sans;
+         --color-raw-good: 128, 255, 128;    /* #b3ff80 179, 255, 128 */
+         --color-raw-bad: 255, 128, 128;     /* #ff8080 */
+         --color-raw-active: 255, 255, 255;  /* #ffffff */
+         --color-bg: rgba(26, 26, 26, 1);    /* #1a1a1a */
+         --color-fg: rgba(230, 230, 230, 1); /* #e6e6e6 */     
+         --color-good: rgba(var(--color-raw-good), 1);
+         --color-bad: rgba(var(--color-raw-bad), 1);
+         --color-bg-active: rgba(var(--color-raw-active), 0.1);
+         --color-bg-good: rgba(var(--color-raw-active), 0.1);
+         --font-small: 0.625rem;
+         --spacing-left: 1rem;
+         --border-radius: 0.25rem;
+      }
+
+      @media (resolution >= 2dppx) {
+         :root {
+            font-size: 48px;
+         }
+      }
+     
+      @media only screen and (max-width: 600px) {
+         :root {
+            font-size: 5.335vw;
+            min-width: 240px;
+         }
+      }
+     
+      @media only screen and (max-width: 240px) {
+         :root {
+            font-size: 12.85px;
+            min-width: 240px;
+         }
+      }
+      
+      body {
+         letter-spacing: 0.05em;
+         color: var(--color-fg);
+         background: var(--color-bg);
+         display: flex;
+         justify-content: center;
+      }
+
+      .ui-hidden {
+         display: none !important;
+      }
+      
+      #app {
+         padding: 2em 0.5em 5em;
+      }
+
+      h1 {
+         font-size: 1em;
+         margin: 2em var(--spacing-left);
+      }
+
+
+      /*** Input Size ***/
+      
+      .input_size {
+         display: flex;
+         justify-content: flex-start;
+         gap: 0.5rem;
+      }
+      
+      .input_size section {
+         display: flex;
+         flex-direction: column;
+      }
+
+      .input_size label {
+         font-size: var(--font-small);
+         margin: 0 var(--spacing-left);
+      }
+      
+      .input_size input {
+         display: inline-block;
+         background: none;
+         border: none;
+         border-bottom: 0.15rem solid var(--color-fg);
+         font-size: 1em;
+         font-weight: bold;
+         color: #fff;
+         padding: 0.5em calc(var(--spacing-left) / 2);
+         margin: 0 calc(var(--spacing-left) / 2);
+         width: 6em;
+      }
+      
+      .input_size input:focus {
+         outline:0;
+         background: var(--color-bg-active);
+         border-radius: var(--border-radius);
+      }
+
+      /*** Output Ratios ***/
+      
+      .output_ratios {
+         min-width: 100%;
+         margin-top: 2rem;
+         text-align: left;
+         border-collapse: separate;
+         border-spacing: 0 0.5em;
+      }
+
+      .output_ratios th {
+         font-size: var(--font-small);
+         font-weight: normal;
+         padding: 0.25rem 0.5rem 0;
+         width: min-content;
+      }
+
+      .output_ratios td {
+         padding: 0.75rem 0.5rem;
+      }
+
+      .output_ratios tr {
+         position: relative;
+      }
+
+      .output_ratios tr:first-child:before,
+      .output_ratios tr:first-child:after {
+         visibility: hidden;
+      }
+      
+      .output_ratios tr:before,
+      .output_ratios tr:after {
+         display: block;
+         position: absolute;
+         content: "";
+         height: 0.15rem;
+         bottom: 0.5rem;
+         background: color-mix(in srgb, var(--color-bad) 50%, var(--color-bg));
+         left: var(--spacing-left);
+         width: calc(100% - 2 * var(--spacing-left));
+      }
+
+      .output_ratios tr:after {
+         background: color-mix(in srgb, var(--color-good) 50%, var(--color-bg));
+         border-right: 0.125rem solid var(--color-fg);
+         width: calc(var(--width) * (100% - 2 * var(--spacing-left) - 0.125rem));
+         left: var(--spacing-left);
+      }
+      
+      .output_ratios td:first-child,
+      .output_ratios th:first-child {
+         padding-left: var(--spacing-left);
+         border-radius: var(--border-radius) 0 0 var(--border-radius);
+      }
+
+      .output_ratios td:last-child,
+      .output_ratios th:last-child {
+         padding-right: var(--spacing-left);
+         border-radius: 0 var(--border-radius) var(--border-radius) 0;
+      }
+      
+      .output_ratios td span {
+         display: inline-block;
+      }
+      
+      .output_ratios td:last-child span {
+         display: block;
+      }
+      
+      .output_ratios .exact_ratio td {
+         background: var(--color-bg-active);
+         color: var(--color-good);
+      }
+      .output_ratios .exact_size td {
+         background: var(--color-bg-active);
+         color: var(--color-good);
+      }
+      
+      .output_ratios .exact_size .entry_ratio {
+         color: var(--color-fg);
+      }
+      
+      .output_ratios .entry a {
+         color: inherit;
+         text-decoration: none;
+      }
+      
+      .output_ratios .entry_ratio {
+         font-weight: bolder;
+      }
+      
+      .output_ratios .entry strong {
+         color: var(--color-bad);
+      }
+      
+      .output_ratios .entry_score {
+         font-size: var(--font-small);
+      }
+
+
+      /*** Animations ***/
+      
+      :root {
+         
+      }
+      
+      @keyframes fadein {
+        0%   { opacity: 0}
+        100% { opacity: 1}
+      }
+
+      .output_ratios .entry {
+         animation-name: fadein;
+         animation-duration: 0.25s;
+         animation-timing-function: ease-out;
+         animation-delay: calc(0.1s + var(--order) * 0.025s);
+         animation-fill-mode: backwards;
+      }
+      
+
+   </style>
+
+<head>
+   
+<meta charset="utf-8" />
+<title>Simple Ratios</title>
+<meta name="generator" content="Geany 2.0" />
+</head>
+
+<body>
+
+   <div id="app">
+      
+      <h1>Simple Ratios</h1>
+
+      <h2 class="ui-hidden">Size</h2>
+      
+      <form class="input_size" aria-label="Input size" type="GET">
+         <section>
+            <label for="input_width">Width</label>
+            <input type="text" id="input_width" placeholder="1080" value="1080">
+         </section>
+         
+         <section>
+            <label for="input_height">Height</label>
+            <input type="text" id="input_height" placeholder="1920" value="1920">
+         </section>
+
+         <input type="submit" class="ui-hidden" value="Calculate">
+      </form>
+
+      <h2 class="ui-hidden">Ratios</h2>
+      
+      <table class="output_ratios" aria-label="Output ratios"><tbody>
+<!--
+         <tr class="entry_header">
+            <th class="entry_ratio">Ratio</th>
+            <th class="entry_size">Size</th>
+            <th class="entry_score">Score</th>
+         </tr>
+         <tr class="entry" style="--width: 100%; --order: 0">
+            <td class="entry_ratio">9<span>:16</span></td>
+            <td class="entry_size"><a href="#1080x1920">1080 <span>x 1920</span></a></td>
+            <td class="entry_score">100% <span>Exact Size</span></td>
+         </tr>
+         <tr class="entry" style="--width: 75.92592592592592%; --order: 1">
+            <td class="entry_ratio">5<span>:9</span></td>
+            <td class="entry_size"><a href="#1067x1920">10<strong>67</strong> <span>x 1920</span></a></td>
+            <td class="entry_score">98.8%<span>Width -13</span></td>
+         </tr>
+         <tr class="entry" style="--width: 68.51851851851852%; --order: 2">
+            <td class="entry_ratio">4<span>:7</span></td>
+            <td class="entry_size"><a href="#1097x1920">10<strong>97</strong> <span>x 1920</span></a></td>
+            <td class="entry_score">98.5% <span>Width +17</span></td>
+         </tr>
+-->
+      </tbody></table>
+      
+   </div>
+
+   
+   <script src="jquery-3.7.1.slim.min.js"></script>
+
+   <script>
+
+      // Global state
+      var app;
+
+      function init () {
+         app = {
+            size: [],
+            smaller: 0,
+            size_sqrt: 0,
+            ratios: {},
+            sizes: {},
+            speed: 500,
+            max_score: 0.025,
+            max_change: [50,50],
+            max_digits: 0,
+            config_score: "side",
+            config_max_results_by_digits: 5
+         }
+      }
+
+      // Get the index of the first different digit between 2 numbers for the first number
+      function diffDigit (x, y) {
+         let x_str = x.toString();
+         let x_index = x_str.length;
+         let index = x_index;
+         
+         let change = (x > y) ? (x - y) : (y - x);
+         
+         if (change > 0) {
+            
+            let y_str = y.toString();
+            let y_index = y_str.length;
+            
+            let change_length = change.toString().length;
+            
+            index = x_index - change_length;
+            
+            x_index = index - 1;
+            y_index = y_index - change_length - 1;
+            
+            if (x_str[x_index] != y_str[y_index]) {
+               index = index - 1;
+            }
+            
+         }
+
+         console.debug("diffDigit", x, y, index);
+         return index;
+      }
+
+      // Add new ratio after some checks
+      function addRatio(ratio, force=false) {
+         
+         // skip large ratios
+         if (force || (ratio[app.smaller] < app.size_sqrt)) {
+               
+            // skip existing ratios
+            return (addToTree(app.ratios, ratio));
+         }
+         
+         return false;
+      }
+      
+      // Get continued fractions as a list = [1,1,3,4,0] 
+      function continuedFraction(x, y, step) {
+
+        //console.debug("continuedFraction", x, y, step);
+
+         let next = step - 1;
+         
+         if (next > -1) {
+
+            let quotient = Math.floor(x / y);
+            let remainder = x % y;
+            
+            let next_quotients;
+            if (remainder > 0) {
+               next_quotients = continuedFraction(y, remainder, next);
+            }
+            else {
+               next_quotients = 0
+            }
+
+            return [quotient].concat(next_quotients);
+         }
+         else {
+            return [-1];
+         }
+      }
+
+      // Get reduced fractions = 17 / 30
+      function continuedRatio(continued_fraction) {
+
+         let new_fraction;
+         
+         if (!isNaN(continued_fraction[1])) {
+
+            let fraction = continuedRatio(continued_fraction.slice(1));
+            new_fraction = [
+               (fraction[0] * continued_fraction[0]) + fraction[1],
+               fraction[0]
+               ];
+
+            // Remove negative sign
+            if (new_fraction[0] < 0) {
+               new_fraction[0] = 0 - new_fraction[0];
+               new_fraction[1] = 0 - new_fraction[1];
+            }
+         }
+         else {
+            new_fraction = [continued_fraction[0], 1];
+         }
+
+         //console.debug("continuedRatio", continued_fraction.join(","), new_fraction.join(","));
+         return new_fraction;
+         
+      }
+
+      // Get continued fractions like a expression = 1 + (1 / (1 + (1 / (3 + (1 / 4)))))
+      function reduceFraction(continued_fraction) {
+         
+         let new_expr = "";
+         
+         if (continued_fraction[1] > -1) {
+
+            new_expr = continued_fraction[0] + " + ( 1 / ( " +
+                     solveFraction(continued_fraction.slice(1)) +
+                     " ) )";
+         }
+         else {
+            new_expr = continued_fraction[0];
+         }
+         
+         console.debug("reduceFraction", new_expr);
+         return new_expr;
+      }
+
+      function newDecimated(width, height, factor) {
+
+         let new_ratio;
+         let ratios = [];
+         
+         let new_width = Math.round( width / factor );
+         let new_height = Math.round( height / factor );
+
+         let area = new_width * new_height;
+         if (area > 1 ) {
+            let continued_fraction = continuedFraction(new_width, new_height, 10);
+            continued_fraction.pop();
+            new_ratio = continuedRatio(continued_fraction);
+
+            
+            // Recursion
+            newDecimated(new_width, new_height, factor);
+         }
+         else {
+            if (area == 1) {
+               new_ratio = [1,1];
+            }
+            else {
+               return;
+            }
+         }
+         
+         if (addRatio(new_ratio)) {
+            console.debug("newDecimated", new_width, new_height, new_ratio.join(","));
+         }
+      }
+
+      
+      function newPadding(width, height, padding) {
+
+         let new_ratio;
+         let ratios = [];
+         
+         let width_min = Math.max((width - padding), 1);
+         let width_max = width + padding;
+         let height_min = Math.max((height - padding), 1);
+         let height_max = height + padding;
+
+         let width_sqrt = Math.sqrt(width);
+         
+         for (let x = width_min; x < width_max+1; x++) {
+            for (let y = height_min; y < height_max+1; y++) {
+
+               //if (app.sizes)
+               let continued_fraction = continuedFraction(x, y, 10);
+               continued_fraction.pop();
+               new_ratio = continuedRatio(continued_fraction);
+
+               if (addRatio(new_ratio)) {
+                  console.debug("newPadding", new_ratio.join(","), x+","+y, );
+               }
+            }
+         }
+      }
+      
+      function newContinuedFractions(continued_fraction, step) {
+         console.debug("newContinuedFractions", continued_fraction.join(","), step);
+         let next = step - 1;
+         
+         if ((next > -1) && (continued_fraction[1] > -1)) {
+
+            let new_ratio;
+            let ratios = newContinuedFractions(continued_fraction, next);
+
+            let base = continued_fraction.slice(0,-1);
+            let pivot = continued_fraction.slice(-1)[0];
+
+            if (base[0] > 0) {
+               
+            }
+            
+            // +step
+            let step_above = base.concat([pivot + step]);
+            new_ratio = continuedRatio(step_above);
+            
+            console.debug("newContinuedFractions above pre", step_above.join(","),
+                  step, new_ratio.join(","));
+            if (addRatio(new_ratio)) {
+               console.debug("newContinuedFractions above", continued_fraction.join(","),
+                  step, new_ratio.join(","));
+            }
+            
+            // -step
+            let step_below;
+            let new_pivot = pivot - step;
+            
+            if (new_pivot > -1) {
+               
+               if (new_pivot == 0) {
+                  step_below = base;
+               }
+               else {
+                  step_below = base.concat([(new_pivot)]);
+               }
+
+               new_ratio = continuedRatio(step_below);
+               
+               console.debug("newContinuedFractions below pre", step_below.join(","),
+                     step, new_ratio.join(","));
+               if (addRatio(new_ratio)) {
+                  console.debug("newContinuedFractions below", continued_fraction.join(","),
+                     step, new_ratio.join(","));
+               }
+            }
+         }
+      }
+
+      function addRatiosInfo(ratios) {
+
+         let new_ratios = ratios.map((ratio) => {
+            
+            let ratio_x = ratio[0];
+            let ratio_y = ratio[1];
+
+            let size = getSizeFromRatio(ratio);
+            console.info("addRatiosInfo", ratio, size.join(","));
+            
+            let change = [
+               size[0] - app.size[0],
+               size[1] - app.size[1]
+            ];
+            
+            let digits = ratio_x.toString().length
+                       + ratio_y.toString().length;
+
+            let score = getScore(size, change);
+
+            return {
+               "ratio": ratio,
+               "size" :  size,
+               "change": change,
+               "digits": digits,
+               "score": score,
+            };
+         });
+
+         console.info("addRatiosInfo", new_ratios);
+         
+         return new_ratios;
+         
+      };
+      
+      // Filter low scores
+      function removeBad(ratios) {
+         return ratios.filter((a) => {
+
+            if ((Math.abs(a.change[0]) > app.max_change[0]) ||
+               (Math.abs(a.change[1]) > app.max_change[1])) {
+               console.debug("removeBad", a.ratio.join(","), a.change.join(","), app.max_change.join(","));
+               return false;
+            }
+            else {
+               return true;
+            }
+         });
+      };
+         
+      
+      // Filter ratios per digits count
+      function removeLarge(ratios) {
+         return ratios.filter((a) => {
+            return (app.config_max_digits < a.digits) ? false : true;   
+         });
+      };
+      
+      // Limit max results per ratio digits count
+      function limitByDigitsCount(ratios) {
+         
+         let max_results = app.config_max_results_by_digits;
+         let count = new Array(app.max_digits).fill(0);
+
+         
+         return ratios.filter((a) => {
+            count[a.digits]++;
+
+            console.debug("limitByDigitsCount", a.ratio.join(","), a.digits, count[a.digits], max_results);
+            return (count[a.digits] > max_results) ? false : true;
+         });
+      };
+         
+      // Sort Ratios
+      function sortRatios(ratios) {
+         ratios.sort((a,b) => {
+
+            // Exact ratio on top
+            if (a.score == 0) {
+               if ((b.score == 0) && (a.ratio[0] > b.ratio[0])) {
+                  console.info("sort", a.ratio[0], a.ratio[1], ">", b.ratio[0], b.ratio[1] );
+                  return 1
+               }
+               console.info("sort", a.ratio[0], a.ratio[1], ">", b.ratio[0], b.ratio[1] );
+               return -1
+            }
+            else if (b.score == 0) {
+               if ((a.score == 0) && (a.ratio[0] > b.ratio[0])) {
+                  console.info("sort", a.ratio[0], a.ratio[1], ">", b.ratio[0], b.ratio[1] );
+                  return 1
+               }
+               console.info("sort", a.ratio[0], a.ratio[1], ">", b.ratio[0], b.ratio[1] );
+               return 1
+            }
+            
+            // Sort by order
+            else if (a.digits < b.digits) { return -1 }
+            else if (a.digits > b.digits) { return  1 }
+
+            // Sort by score
+            else if (a.score < b.score) { return -1 }
+            else if (a.score > b.score) { return  1 }
+
+            // Sort by smaller ratio
+            else if (a.ratio[0] < b.ratio[0]) { return -1 }
+            else if (a.ratio[0] > b.ratio[0]) { return  1 }
+            
+            return 0;
+         })
+      };
+
+      // remove duplicate sizes
+      function removeDupli(ratios) {
+         ratios.filter((a) => {
+
+            //get size for ratio
+            size = getSizeFromRatio(a);
+
+            check = addToTree(app.sizes, size);
+            console.debug("filter_size", a.join(","), size.join(","), check);
+            return check;
+         
+         });
+      };
+         
+      function hasRatio(a) {
+         if (app.ratios[a[0]] == undefined) {
+            app.ratios[a[0]] = {}
+            app.ratios[a[0]][a[1]] = true;
+            return true;
+         }
+         else {
+            if (app.ratios[a[0]][a[1]] == undefined) {
+               app.ratios[a[0]][a[1]] = true;
+               return true;
+            }
+            else {
+               return false;
+            }
+         }
+      }
+
+      function addToTree(tree, a) {
+         if (tree[a[0]] == undefined) {
+            tree[a[0]] = {}
+            tree[a[0]][a[1]] = true;
+            return true;
+         }
+         else {
+            if (tree[a[0]][a[1]] == undefined) {
+               tree[a[0]][a[1]] = true;
+               return true;
+            }
+            else {
+               return false;
+            }
+         }
+      }
+
+      function treeToArray(tree) {
+         let array = [];
+         for (const x in tree) {
+            for (const y in tree[x]) {
+               array.push([parseInt(x), parseInt(y)]);
+            }
+         }
+         return array;
+      }
+      
+      function getSizeFromRatio(a) {
+         
+         if (a[0] < a[1]) {
+            height = app.size[1];
+            width = Math.round(height / a[1] * a[0]);
+         }
+         else {
+            width = app.size[0];
+            height = Math.round(width / a[0] * a[1]);
+         }
+
+         return [width, height];
+      }
+      
+      function getScore(size, change) {
+
+         let score;
+         change_x = Math.abs(change[0]);
+         change_y = Math.abs(change[1]);
+
+         
+         if (app.config_score == "side") {
+            score = (change_x / app.size[0]) +
+                    (change_y / app.size[1]);
+         }
+         else if (app.config_score == "area") {
+            let change_area = (change_x * size[1]) +
+                              (change_y * size[0]);
+            let app_size_area = app.size[0] * app.size[1];
+            score = change_area / app_size_area;
+            
+         }
+
+         return score;
+      }
+      
+      function computeRatios() {
+         let width = app.size[0];
+         let height = app.size[1];
+         app.ratios = {};
+         app.sizes = {};
+         let ratios = [];
+         let step = 10;
+
+         // Set smaller side
+         if (width < height) {
+            app.smaller = 0;
+            app.bigger = 1;
+         }
+         else {
+            app.smaller = 1;
+            app.bigger = 0;
+         }
+
+         // Set maximum change
+         let max_change = Math.round(
+            (app.smaller > 0) ?
+               app.size[1] * app.max_score :
+               app.size[0] * app.max_score
+         );
+         app.max_change = [max_change, max_change];
+
+         // Cache square root of the smaller side
+         app.size_sqrt = Math.sqrt(app.size[app.smaller]);
+         
+
+         // Get continued fractions
+         let continued_fraction = continuedFraction(width, height, step);
+         let exact = continued_fraction.pop();
+         console.log("Computed continued fraction:", continued_fraction.join(","));
+         
+         // Get continued ratio
+         let continued_ratio = continuedRatio(continued_fraction);
+         console.log("Computed continued ratio:", continued_ratio.join("/"));
+
+         if (exact < 0) {
+            console.warn("Continued ratio is not exact");
+
+            // Add size to ratios list
+            addRatio(app.size, true);
+
+            // Set size as the exact ratio
+            app.exact = app.size;
+         }
+         else {
+            // Set continued ratio as the exact ratio
+            app.exact = continued_ratio;
+         }
+         
+         // Add built fraction to ratios list
+         addRatio(continued_ratio, true);
+         
+         // Add new ratios with Continued Fraction
+         newContinuedFractions(continued_fraction, 10);
+         
+         // Add new ratios with Decimation
+         newDecimated(width, height, 10);
+         newDecimated(width, height, 7);
+         newDecimated(width, height, 5);
+         newDecimated(width, height, 3);
+         newDecimated(width, height, 2);
+
+         // Add new ratios with Padding
+         newPadding(width, height, 40);
+
+         // Get Array with unique ratios
+         ratios = treeToArray(app.ratios);
+         
+         //~ // Filter reduntant perfect ratios
+         //~ let best_ratio = [].concat(continued_ratio);
+         //~ ratios = ratios.filter((a) => {
+
+            //~ let change;
+            //~ let check;
+            //~ if (a[0] < a[1]) {
+               //~ change = width - Math.round(height / a[1] * a[0]);
+            //~ }
+            //~ else {
+               //~ change = height - Math.round(width / a[0] * a[1]);
+            //~ }
+            
+            //~ change = change < 0 ? 0 - change : change;
+
+            //~ if (change < 1) {
+               //~ if ( a[0] < best_ratio[0]) {
+                  //~ best_ratio = a;
+                  //~ check = true;
+               //~ }
+               //~ else {
+                  //~ check = false;
+               //~ }
+            //~ }
+            //~ else {
+               //~ check = true;
+            //~ };
+            
+            //~ console.debug("filter_best", a.join(","), change, best_ratio.join(","), check);
+            //~ return check;
+         //~ });
+         
+         
+         // remove duplicate sizes
+         removeDupli(ratios);
+         
+         // Compute ratio info 
+         ratios = addRatiosInfo(ratios);
+
+         // Filter low scores 
+         ratios = removeBad(ratios);
+
+         
+         // Filter reduntant perfect ratios
+         //~ ratios = ratios.filter((a) => {
+
+            //~ let change;
+            //~ let check;
+            //~ if (a[0] < a[1]) {
+               //~ change = width - Math.round(height / a[1] * a[0]);
+            //~ }
+            //~ else {
+               //~ change = height - Math.round(width / a[0] * a[1]);
+            //~ }
+            
+            //~ change = change < 0 ? 0 - change : change;
+
+            //~ if (change < 1) {
+               //~ if ( a[0] < best_ratio[0]) {
+                  //~ best_ratio = a;
+                  //~ check = true;
+               //~ }
+               //~ else {
+                  //~ check = false;
+               //~ }
+            //~ }
+            //~ else {
+               //~ check = true;
+            //~ };
+            
+            //~ console.debug("filter_best", a.join(","), change, best_ratio.join(","), check);
+            //~ return check;
+         //~ });
+         
+         // Sort by order and score
+         sortRatios(ratios);
+
+         // Limit results per ratio digits count
+         ratios = limitByDigitsCount(ratios);
+         
+         console.info("computeRatios", ratios);
+         
+         return ratios;
+
+      }
+
+      
+      function outputRatios(ratios) {
+
+         
+         let ratios_info = ratios.map(entry => {
+            let info = {};
+            
+            // Ratio column
+            info.ratio = entry.ratio[0] + ":<span>"
+                       + entry.ratio[1] + "</span>";
+
+            // Size column
+            let width = entry.size[0];
+            let height = entry.size[1];
+            
+            info.href = "#" + width + "x" + height;
+
+            let change_x = entry.change[0];
+            let change_y = entry.change[1];
+            let text_x;
+            let text_y;
+            
+            if (change_x != 0) {
+               let width_str = width.toString();
+               let index = diffDigit(width, app.size[0]);
+               text_x = width_str.substring(0, index) + "<strong>" +
+                        width_str.substring(index)    + "</strong>";
+            }
+            else {
+               text_x = width;
+            }
+            
+            if (change_y != 0) {
+               let height_str = height.toString();
+               let index = diffDigit(height, app.size[1]);
+               text_y = height_str.substring(0, index) + "<strong>" +
+                        height_str.substring(index)    + "</strong>";
+            }
+            else {
+               text_y = height;
+            }
+
+            info.size = text_x + " x <span>" + text_y + "</span>";
+
+            // Score column
+            let score = entry.score;
+            let score_x = "";
+            let score_y = "";
+            info.css = "";
+            
+            if (score == 0) {
+               
+               // Exact ratio
+               if ((app.exact[0] == entry.ratio[0]) &&
+                   (app.exact[1] == entry.ratio[1])) {
+                  info.css = " exact_ratio";
+                  score_x = " <span>Exact Ratio</span>";
+               }
+               // Exact size
+               else {
+                  info.css = " exact_size";
+                  score_x = " <span>Exact Size</span>";
+               }
+            }
+            else {
+               if (change_x != 0) {
+                  score_x = " <span>Width " +
+                            (change_x <= 0 ? "" : "+") +
+                             change_x + "</span>"
+               }
+               if (change_y != 0) {
+                  score_y = " <span>Height " +
+                            (change_y <= 0 ? "" : "+") +
+                             change_y + "</span>"
+               }
+            }
+
+            let percent = parseFloat(((1 - entry.score) * 99.95).toFixed(1));
+            info.score = percent + "%" + score_x + score_y;
+            info.indicator = 1 - (score / app.max_score);
+            
+            return info;
+            
+         });
+
+
+         // Build a new table
+         let $tbody = $("<tbody>");
+
+         // Columns
+         let cols = [
+            { name: "Ratio", css: "entry_ratio" },
+            { name: "Size" , css: "entry_size"  },
+            { name: "Score", css: "entry_score" }
+         ];
+
+         // Build header
+         let $row = $("<tr>",{ "class": "entry_header" });
+         cols.forEach((col) => {
+            $row.append($("<th>",
+               { "text": col.name, "class": col.css }
+            ));
+         });
+         $tbody.append($row);
+         
+         //Build rows
+         ratios_info.forEach((entry, i) => {
+
+            $row = $("<tr>", {
+               "class": "entry" + entry.css,
+               "style": "--width: " + entry.indicator + 
+                        "; --order: " +  i
+            });
+
+            //Size with link
+            let $entry_size = $("<a>", {
+               "html": entry.size,
+               "href": entry.href
+            });
+            
+            $row.append(
+               $("<td>", {
+                  "class": cols[0].css
+               }).html(entry.ratio),
+               
+               $("<td>", { "class": cols[1].css })
+                  .html($entry_size),
+               
+               $("<td>", {
+                  "html": entry.score,
+                  "class": cols[2].css
+               })
+            );
+            
+            $tbody.append($row);
+         });
+
+         // Append to html
+         $table = $('.output_ratios').html($tbody);
+
+      }
+
+      // Get a valid number from string
+      function getNumber(text) {
+         let number = parseInt(text.replace(/\D/g,''));
+         return (isNaN(number)) ? 0 : number;
+      }
+      
+      // Get size from form
+      function getSizeFromForm() {
+         let width = getNumber($("#input_width").val());
+         let height = getNumber($("#input_height").val());
+         if(width * height > 0) {
+            console.log("Size from form:", width, "x", height);
+            setSize(width, height);
+            return true;
+         }
+         else {
+            console.warn("Can't get a valid size from form");
+            return false;
+         }
+      }
+
+      // Get size from URL #anchor
+      function getSizeFromURL() {
+
+         let hash = $(location).attr('hash');
+         if(!hash) { return }
+         
+         const size = hash.substring(1).split("x", 2);
+         let width = getNumber(size[0]);
+         let height = getNumber(size[1]);
+         if(width * height > 0) {
+            console.log("Size from URL #anchor:", width, "x", height);
+            setSize(width, height);
+            return true;
+         }
+         else {
+            console.warn("Can't get a valid size from URL #anchor");
+            return false;
+         }
+
+      }
+
+      // Set size
+      function setSize(width, height) {
+
+         // Update form input values
+         $("#input_width").val(width);
+         $("#input_height").val(height);
+         
+         // Skip if current size is not changed
+         if ((width == app.size[0]) && (height == app.size[1])) {
+            console.warn("Size hasn't changed");
+            return;
+         }
+         
+         // Update app size
+         app.size[0] = width;
+         app.size[1] = height;
+         console.log("New size:", width, "x", height);
+
+         // Set larger and smaller side indexes
+         if (width > height) {
+            app.larger = 0;
+            app.smaller = 1;
+         }
+         else {
+            app.larger = 0;
+            app.smaller = 1;
+         }
+
+         //Set max digits
+         app.max_digits = (height + "" + width).length;
+         
+         // Update URL #anchor
+         $(location).attr('hash', width + "x" + height);
+
+         // Compute simple ratios
+         ratios = computeRatios();
+         
+         //ratios = [ [9,16], [17,30], [34,61] ];
+
+         
+         // Update output ratios
+         outputRatios(ratios);
+      }
+      
+      $( document ).ready(function() {
+
+         init();
+         
+         // Get size from URL #anchor
+         if (!getSizeFromURL()) {
+
+            // If not, set default size
+            setSize(1080, 1920);
+         }
+
+         // Watch for URL #anchor changes
+         $(window).on("hashchange", function(event){
+            getSizeFromURL();
+         });
+
+         // Watch for form inputs changes
+         $(".input_size").on("change", function(event){
+            event.preventDefault();
+            getSizeFromForm();
+         });
+             
+         // Change form submit behaviour
+         $(".input_size").submit(function(event){
+            $(".input_size input").blur();
+         });
+         
+      });
+   </script>
+   
+</body>
+
+</html>
